@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 二つの足あと。108dp のアダプティブアイコン（中央 66dp が安全領域） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 左足 -->
+    <group android:rotation="-14" android:pivotX="44" android:pivotY="62">
+        <path android:fillColor="#F6F1E7"
+            android:pathData="M44,52 C50,52 53,59 52,67 C51,74 47,78 43,78 C38,78 35,73 36,66 C37,58 39,52 44,52 Z" />
+        <path android:fillColor="#F6F1E7" android:pathData="M37,46 m-3.2,0 a3.2,3.8 0 1,0 6.4,0 a3.2,3.8 0 1,0 -6.4,0" />
+        <path android:fillColor="#F6F1E7" android:pathData="M43.5,43.5 m-2.8,0 a2.8,3.3 0 1,0 5.6,0 a2.8,3.3 0 1,0 -5.6,0" />
+        <path android:fillColor="#F6F1E7" android:pathData="M49.5,45 m-2.4,0 a2.4,2.9 0 1,0 4.8,0 a2.4,2.9 0 1,0 -4.8,0" />
+    </group>
+    <!-- 右足（少し上） -->
+    <group android:rotation="12" android:pivotX="64" android:pivotY="44">
+        <path android:fillColor="#E8B04B"
+            android:pathData="M64,34 C70,34 73,41 72,49 C71,56 67,60 63,60 C58,60 55,55 56,48 C57,40 59,34 64,34 Z" />
+        <path android:fillColor="#E8B04B" android:pathData="M58.5,27 m-2.4,0 a2.4,2.9 0 1,0 4.8,0 a2.4,2.9 0 1,0 -4.8,0" />
+        <path android:fillColor="#E8B04B" android:pathData="M64.5,25.5 m-2.8,0 a2.8,3.3 0 1,0 5.6,0 a2.8,3.3 0 1,0 -5.6,0" />
+        <path android:fillColor="#E8B04B" android:pathData="M71,28 m-3.2,0 a3.2,3.8 0 1,0 6.4,0 a3.2,3.8 0 1,0 -6.4,0" />
+    </group>
+</vector>

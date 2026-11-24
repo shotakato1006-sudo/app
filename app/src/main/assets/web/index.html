@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>あしあと</title>
+<link rel="stylesheet" href="lib/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="view" class="view"></main>
+
+  <nav id="tabs" class="tabs">
+    <button data-tab="home" class="on"><span class="ti">🏠</span><span>ホーム</span></button>
+    <button data-tab="trips"><span class="ti">🧳</span><span>旅</span></button>
+    <button data-tab="cal"><span class="ti">📅</span><span>日々</span></button>
+    <button data-tab="map"><span class="ti">🗺️</span><span>地図</span></button>
+    <button data-tab="stats"><span class="ti">🏅</span><span>記録</span></button>
+  </nav>
+
+  <div id="busy" class="busy hidden">
+    <div class="busy-box">
+      <div class="spinner"></div>
+      <div id="busy-msg">読み込み中…</div>
+    </div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="lib/leaflet.js"></script>
+  <script src="lib/topojson-client.min.js"></script>
+  <script src="geo.js"></script>
+  <script src="model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
