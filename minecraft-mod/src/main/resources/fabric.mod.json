@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "vtuberbridge",
+  "version": "${version}",
+  "name": "VTuber Bridge",
+  "description": "AI VTuberが配信画面のプレイヤーの状態を読み、移動・視点変更・設置を行うためのローカル連携Mod",
+  "authors": ["aivtuber"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["jp.aivtuber.bridge.BridgeMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 日々の生成データ（ワールド別メモ・検証ログ）はソース管理しない
+data/worlds/
+data/logs/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
