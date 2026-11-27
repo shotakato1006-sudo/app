@@ -40,10 +40,11 @@ function show(){
   var p=P[key];
   [].forEach.call(nav.children,function(a){a.className=a.dataset.k===key?"on":"";});
   // document.write を使う aismap.js ではなく、iframe を直接埋め込む
-  // パラメータは最小限・すべて数値（%や空の値は Bad request の原因になりうる）
-  var w=Math.max(320,map.clientWidth||document.documentElement.clientWidth||360);
+  // aismap.js と同じ形式。ra（埋め込み元ページのURL）が無いと Bad request になる
   var h=Math.max(420,map.clientHeight||420);
-  var q="zoom="+p.z+"&lat="+p.lat.toFixed(2)+"&lon="+p.lon.toFixed(2)+"&width="+w+"&height="+h+"&names=true";
+  var q="zoom="+p.z+"&lat="+p.lat.toFixed(2)+"&lon="+p.lon.toFixed(2)+"&width=100%25&height="+h+
+        "&names=true&track=false&fleet=false&fleet_name=false&fleet_hide_old_positions=false&clicktoact=false&store_pos=true"+
+        "&ra="+encodeURIComponent(location.href.split("#")[0]);
   map.src="https://www.vesselfinder.com/aismap?"+q;
   ext.href="https://www.vesselfinder.com/?lat="+p.lat+"&lon="+p.lon+"&zoom="+p.z;
 }
