@@ -68,17 +68,32 @@ aside{width:400px;flex-shrink:0;border-left:1px solid var(--line);background:var
 .ship{transition:transform .2s}
 .ship svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
 .leaflet-tooltip.nm{font:600 12px system-ui,"Hiragino Sans",sans-serif;padding:2px 7px}
-/* PC専用：画面幅が狭い端末（スマホなど）では案内だけを出す */
-#pconly{display:none}
+/* スマホ・狭い画面：上に地図、下に船の情報（下の部分だけスクロール） */
 @media (max-width:1023px){
-  header,main{display:none}
-  #pconly{display:flex;flex:1;align-items:center;justify-content:center;text-align:center;padding:32px 16px;color:var(--sub);line-height:1.9}
-  #pconly b{display:block;color:var(--ink);font-size:20px;margin-bottom:8px}
+  body{height:100dvh}
+  header{gap:6px 10px;padding:8px 12px}
+  h1{font-size:17px}
+  h1 small{display:none}
+  .updated{margin-left:auto;font-size:11px}
+  .areas{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .areas::-webkit-scrollbar{display:none}
+  .areas button{flex-shrink:0;padding:6px 12px}
+  main{flex-direction:column}
+  #map{flex:none;height:44dvh}
+  aside{width:auto;flex:1;border-left:0;border-top:1px solid var(--line)}
+  .filters{padding:8px 12px 6px}
+  .filters h2{display:none}
+  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0;padding:6px 12px 6px 10px}
+  .detail{padding:12px}
+  .dname{font-size:20px}
+  .list{padding:10px 12px 24px}
+  .row{padding:10px 8px}
 }
 </style>
 </head>
 <body>
-<div id="pconly"><div><b>東京湾ふねウォッチ</b>このページはパソコン専用です。<br>パソコンのブラウザで開いてください。<br>（ブラウザの幅が狭い場合は、ウィンドウを広げてください）</div></div>
 <header>
   <h1>東京湾ふねウォッチ<small>いま湾内にいる面白い船</small></h1>
   <div class="areas" id="areas"></div>
@@ -142,7 +157,7 @@ Object.keys(AREAS).forEach(function(k){
 // ---- 状態 ----
 var vessels=[], markers={}, iconSig={}, selected=null, updatedAt=null, liveInfo=null;
 // ローカル版（node server.mjs）で開いているときは、ほぼリアルタイムで更新し、AI解説もその場で作る
-var LOCAL = location.protocol==="http:" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+var LOCAL = false; // サーバーが live:true を返したら true（スマホから同じWi-Fiで開いた場合も含む）
 var aiPending={}, aiError={};
 
 function shipIcon(v, sel){
@@ -326,12 +341,12 @@ function showUpdated(){
   el.textContent = updatedAt ? "データ更新："+ago(updatedAt)+"（約15分ごとに更新）" : "";
 }
 function load(){
-  fetch("data/vessels.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
+  return fetch("data/vessels.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
     if(!r.ok) throw new Error(r.status); return r.json();
   }).then(function(d){
     vessels=(d.vessels||[]).filter(function(v){return typeof v.lat==="number";});
     vessels.forEach(function(v){if(!v.ai&&aiTexts[v.mmsi])v.ai=aiTexts[v.mmsi];});
-    liveInfo=d.live?d:null;
+    liveInfo=d.live?d:null; LOCAL=!!d.live;
     updatedAt=Date.parse(d.updated);
     if(selected&&!byId(selected)) selected=null;
     showUpdated(); render();
@@ -342,8 +357,8 @@ function load(){
     renderChips();
   });
 }
-load();
-setInterval(load, LOCAL?10*1000:5*60*1000);
+function loop(){load().then(function(){setTimeout(loop, LOCAL?10*1000:5*60*1000);});}
+loop();
 setInterval(showUpdated, 60*1000);
 </script>
 </body>

@@ -7,8 +7,10 @@
 //   ANTHROPIC_API_KEY=...   (任意。あると船をクリックしたときに AI 解説を作る)
 //   AI_MODEL=claude-opus-5-5 (任意)
 //   PORT=8080               (任意)
+//   PHONE=0                 (任意) 0 にすると同じWi-Fiのスマホから見られなくなる（このパソコンだけ）
 
 import http from "node:http";
+import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,7 +121,7 @@ function send(res, code, body, type = "application/json; charset=utf-8") {
   res.writeHead(code, { "Content-Type": type, "Cache-Control": "no-store" });
   res.end(body);
 }
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   if (FILES[url.pathname]) {
     return send(res, 200, fs.readFileSync(path.join(here, FILES[url.pathname])), "text/html; charset=utf-8");
@@ -139,6 +141,15 @@ http.createServer(async (req, res) => {
     return send(res, 200, JSON.stringify(await explain(mmsi)));
   }
   send(res, 404, "not found", "text/plain; charset=utf-8");
-}).listen(PORT, "127.0.0.1", () => {
-  console.log(`\n  東京湾ふねウォッチ（ローカル版）: http://localhost:${PORT}\n  止めるときは Ctrl+C\n`);
+});
+const PHONE = process.env.PHONE !== "0";
+server.listen(PORT, PHONE ? "0.0.0.0" : "127.0.0.1", () => {
+  console.log(`\n  東京湾ふねウォッチ（ローカル版）`);
+  console.log(`  このパソコンで見る: http://localhost:${PORT}`);
+  if (PHONE) {
+    const ips = Object.values(os.networkInterfaces()).flat()
+      .filter((i) => i && i.family === "IPv4" && !i.internal).map((i) => i.address);
+    for (const ip of ips) console.log(`  スマホで見る（同じWi-Fiで）: http://${ip}:${PORT}`);
+  }
+  console.log(`  止めるときは Ctrl+C\n`);
 });
