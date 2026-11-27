@@ -1,0 +1,15 @@
+# Render（https://render.com）でネット上に公開するための設定
+services:
+  - type: web
+    name: tokyobay-ships
+    runtime: node
+    plan: free
+    rootDir: local
+    buildCommand: echo "no build needed"
+    startCommand: node server.mjs
+    healthCheckPath: /healthz
+    envVars:
+      - key: AISSTREAM_API_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: "22"

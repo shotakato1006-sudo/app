@@ -221,6 +221,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
     return res.end(fs.readFileSync(path.join(here, "index.html")));
   }
+  if (url.pathname === "/healthz") { res.writeHead(200); return res.end("ok"); }
   if (url.pathname === "/api/vessels") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
     return res.end(JSON.stringify({ now: Date.now(), lastMsgAt, msgCount, status, error: lastError, vessels: vessels() }));
