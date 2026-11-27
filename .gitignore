@@ -2,3 +2,5 @@ node_modules/
 .cache/
 site/
 .env
+tokyobay_local.zip
+local/船の情報キャッシュ.json
