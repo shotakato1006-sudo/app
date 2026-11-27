@@ -140,7 +140,10 @@ Object.keys(AREAS).forEach(function(k){
 });
 
 // ---- 状態 ----
-var vessels=[], markers={}, selected=null, updatedAt=null;
+var vessels=[], markers={}, iconSig={}, selected=null, updatedAt=null, liveInfo=null;
+// ローカル版（node server.mjs）で開いているときは、ほぼリアルタイムで更新し、AI解説もその場で作る
+var LOCAL = location.protocol==="http:" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+var aiPending={}, aiError={};
 
 function shipIcon(v, sel){
   var len=v.len||0;
@@ -161,14 +164,27 @@ function shipIcon(v, sel){
 function visible(v){return CAT[v.cat] && CAT[v.cat].on;}
 
 function render(){
-  layer.clearLayers(); markers={};
+  // マーカーは作り直さず、位置と見た目だけ更新する（数秒ごとの更新でもチラつかないように）
+  var keep={};
   vessels.forEach(function(v){
     if(!visible(v))return;
-    var m=L.marker([v.lat,v.lon],{icon:shipIcon(v,selected===v.mmsi),zIndexOffset:selected===v.mmsi?1000:(v.len||0)});
-    m.bindTooltip(v.name||"（名前不明）",{className:"nm",direction:"top",offset:[0,-8]});
-    m.on("click",function(){select(v.mmsi,false);});
-    m.addTo(layer); markers[v.mmsi]=m;
+    var sel=selected===v.mmsi, moving=v.sog!=null&&v.sog>=0.8;
+    var sig=[v.cat,v.len,sel,moving,moving?(v.hdg!=null?v.hdg:v.cog):0].join("|");
+    var m=markers[v.mmsi];
+    if(!m){
+      m=L.marker([v.lat,v.lon],{icon:shipIcon(v,sel)});
+      m.bindTooltip("",{className:"nm",direction:"top",offset:[0,-8]});
+      (function(id){m.on("click",function(){select(id,false);});})(v.mmsi);
+      m.addTo(layer); markers[v.mmsi]=m; iconSig[v.mmsi]=sig;
+    }else{
+      m.setLatLng([v.lat,v.lon]);
+      if(iconSig[v.mmsi]!==sig){m.setIcon(shipIcon(v,sel));iconSig[v.mmsi]=sig;}
+    }
+    m.setTooltipContent(esc(v.name||"（名前不明）"));
+    m.setZIndexOffset(sel?1000:(v.len||0));
+    keep[v.mmsi]=1;
   });
+  Object.keys(markers).forEach(function(id){if(!keep[id]){layer.removeLayer(markers[id]);delete markers[id];delete iconSig[id];}});
   renderChips(); renderList(); renderDetail();
 }
 
@@ -256,12 +272,18 @@ function renderDetail(){
     el.innerHTML = vessels.length
       ? '<div class="spot">'+cards.map(function(c){return '<div class="card" data-m="'+esc(c[1].mmsi)+'"><div class="lbl">'+c[0]+'</div><div class="nm">'+esc(c[1].name||"（名前不明）")+'</div><div class="lbl">'+esc(c[2])+'</div></div>';}).join("")+
         '<div class="lbl" style="color:var(--sub);font-size:12px">地図の船や下の一覧をクリックすると、AIの解説が見られます。▲は航行中（向きは進行方向）、●は止まっている船です。</div></div>'
-      : "";
+      : (LOCAL?'<div class="notice">船のデータを受信しています…<br>つないでから1〜2分で船が出はじめ、名前や種類は数分かけてそろっていきます。</div>':"");
     [].forEach.call(el.querySelectorAll(".card"),function(c){c.onclick=function(){select(c.dataset.m,true);};});
     return;
   }
   var sp=speedText(v);
   el.className="detail";
+  if(LOCAL && !v.ai && v.name && v.cat!=="other" && !aiPending[v.mmsi] && !aiError[v.mmsi]) requestAI(v.mmsi);
+  var aiHead = v.ai?'AI解説':(aiPending[v.mmsi]?'AI解説を作成中…':'かんたん解説');
+  var aiNote = v.ai?'AIが船のデータをもとに書いた解説です。誤りを含むことがあります。'
+    :aiPending[v.mmsi]?'数秒お待ちください。下は種類ごとの一般的な説明です。'
+    :aiError[v.mmsi]?aiError[v.mmsi]
+    :LOCAL?'この種類の船にはAI解説を作っていません。':'この船のAI解説はまだ作成中です。';
   el.innerHTML =
     '<span class="badge" style="--c:var(--c-'+v.cat+')">'+esc(CAT[v.cat].n)+'</span>'+
     '<div class="dname">'+esc(v.name||"（名前不明）")+'</div>'+
@@ -272,10 +294,20 @@ function renderDetail(){
       '<div class="fact"><div class="k">速さ</div><div class="v">'+esc(sp.v)+'</div><div class="h">'+esc(sp.h)+'</div></div>'+
       '<div class="fact"><div class="k">行き先</div><div class="v">'+esc(destText(v.dest))+'</div></div>'+
     '</div>'+
-    '<div class="ai"><div class="k">'+(v.ai?'AI解説':'かんたん解説')+'</div>'+esc(v.ai||fallbackText(v))+
-      '<div class="note">'+(v.ai?'AIが船のデータをもとに書いた解説です。誤りを含むことがあります。':'この船のAI解説はまだ作成中です。')+'</div></div>'+
+    '<div class="ai"><div class="k">'+aiHead+'</div>'+esc(v.ai||fallbackText(v))+
+      '<div class="note">'+esc(aiNote)+'</div></div>'+
     '<div class="links"><a href="https://www.vesselfinder.com/vessels/details/'+encodeURIComponent(v.mmsi)+'" target="_blank" rel="noopener">VesselFinderで詳しく見る</a> · <a href="#" id="back">一覧に戻る</a></div>';
   document.getElementById("back").onclick=function(e){e.preventDefault();selected=null;render();};
+}
+
+var aiTexts={};
+function requestAI(id){
+  aiPending[id]=true;
+  fetch("api/explain?mmsi="+encodeURIComponent(id)).then(function(r){return r.json();}).then(function(d){
+    if(d.text) aiTexts[id]=d.text; else aiError[id]=d.error||"AI解説を作れませんでした";
+  }).catch(function(){aiError[id]="AI解説の取得に失敗しました";}).then(function(){
+    delete aiPending[id]; var v=byId(id); if(v&&aiTexts[id]) v.ai=aiTexts[id]; if(selected===id) renderDetail();
+  });
 }
 
 // ---- データ読み込み ----
@@ -284,13 +316,22 @@ function ago(t){
   return m<1?"たった今":m<60?m+"分前":Math.round(m/60)+"時間前";
 }
 function showUpdated(){
-  document.getElementById("updated").textContent = updatedAt ? "データ更新："+ago(updatedAt)+"（約15分ごとに更新）" : "";
+  var el=document.getElementById("updated");
+  if(LOCAL&&liveInfo){
+    el.textContent = liveInfo.status==="受信中"
+      ? "● リアルタイム受信中（"+vessels.length+"隻・10秒ごとに更新）"
+      : "AIS："+liveInfo.status+(liveInfo.error?"（"+liveInfo.error+"）":"");
+    return;
+  }
+  el.textContent = updatedAt ? "データ更新："+ago(updatedAt)+"（約15分ごとに更新）" : "";
 }
 function load(){
   fetch("data/vessels.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
     if(!r.ok) throw new Error(r.status); return r.json();
   }).then(function(d){
     vessels=(d.vessels||[]).filter(function(v){return typeof v.lat==="number";});
+    vessels.forEach(function(v){if(!v.ai&&aiTexts[v.mmsi])v.ai=aiTexts[v.mmsi];});
+    liveInfo=d.live?d:null;
     updatedAt=Date.parse(d.updated);
     if(selected&&!byId(selected)) selected=null;
     showUpdated(); render();
@@ -302,7 +343,7 @@ function load(){
   });
 }
 load();
-setInterval(load, 5*60*1000);
+setInterval(load, LOCAL?10*1000:5*60*1000);
 setInterval(showUpdated, 60*1000);
 </script>
 </body>

@@ -25,6 +25,7 @@ const BBOX = [[34.9, 139.55], [35.75, 140.2]];
 const KEEP_MS = 40 * 60 * 1000;
 
 // ---------- 分類 ----------
+export const BBOX_TOKYO_BAY = BBOX;
 export const CATS = ["passenger", "giant", "pleasure", "highspeed", "work", "fishing", "other"];
 
 export function typeName(t) {
@@ -145,10 +146,10 @@ export function applyMessage(msg, stat, pos) {
 }
 
 // ---------- キャッシュ ----------
-function readJSON(file, fallback) {
+export function readJSON(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
 }
-function writeJSON(file, obj) {
+export function writeJSON(file, obj) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(obj));
 }
@@ -188,7 +189,7 @@ async function listen(stat, pos) {
 }
 
 // ---------- AI 解説 ----------
-const SYSTEM = `あなたは東京湾の船を一般の人にやさしく紹介するガイドです。
+export const SYSTEM = `あなたは東京湾の船を一般の人にやさしく紹介するガイドです。
 船のAISデータ（船名・船種・大きさ・速さ・目的地など）を受け取り、その船の短い解説文を日本語で書きます。
 
 書き方:
@@ -199,8 +200,28 @@ const SYSTEM = `あなたは東京湾の船を一般の人にやさしく紹介�
 - 停泊中（速さ0付近）か航行中かが分かれば一言添えてよい。
 - 前置きや見出し、箇条書き、絵文字は使わず、解説文だけを返す。`;
 
-function aiKey(s) {
+export function aiKey(s) {
   return [s.name || "", s.type || 0, s.len || 0].join("|");
+}
+
+// 1隻ぶんの解説を作る（失敗したら例外。拒否されたら null）
+export async function explainOne(client, v, model = AI_MODEL) {
+  const info = {
+    船名: v.name, 船種: v.typeName, 全長m: v.len || "不明", 幅m: v.beam || "不明",
+    船籍: v.flag || "不明", 速さノット: v.sog ?? "不明", 目的地AIS表記: v.dest || "不明",
+    呼出符号: v.call || "不明", IMO番号: v.imo || "なし",
+  };
+  const res = await client.beta.messages.create({
+    model,
+    max_tokens: 2000,
+    output_config: { effort: "low" },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system: SYSTEM,
+    messages: [{ role: "user", content: JSON.stringify(info, null, 1) }],
+  });
+  if (res.stop_reason === "refusal") return null;
+  return res.content.filter((b) => b.type === "text").map((b) => b.text).join("").trim() || null;
 }
 
 async function explainAll(list, aiCache) {
@@ -214,24 +235,10 @@ async function explainAll(list, aiCache) {
     .slice(0, MAX_AI);
   console.log(`AI explanations to create: ${todo.length}`);
   for (const v of todo) {
-    const info = {
-      船名: v.name, 船種: v.typeName, 全長m: v.len || "不明", 幅m: v.beam || "不明",
-      船籍: v.flag || "不明", 速さノット: v.sog ?? "不明", 目的地AIS表記: v.dest || "不明",
-      呼出符号: v.call || "不明", IMO番号: v.imo || "なし",
-    };
     try {
-      const res = await client.beta.messages.create({
-        model: AI_MODEL,
-        max_tokens: 2000,
-        output_config: { effort: "low" },
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        system: SYSTEM,
-        messages: [{ role: "user", content: JSON.stringify(info, null, 1) }],
-      });
-      if (res.stop_reason === "refusal") { console.warn("refused:", v.name); continue; }
-      const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+      const text = await explainOne(client, v);
       if (text) aiCache[v.mmsi] = { key: aiKey(v), text, at: Date.now() };
+      else console.warn("refused:", v.name);
     } catch (e) {
       console.error(`AI error for ${v.name}:`, e.status || "", e.message);
       if (e.status === 401 || e.status === 403) break;
@@ -239,7 +246,31 @@ async function explainAll(list, aiCache) {
   }
 }
 
-// ---------- メイン ----------
+// 位置と静的情報を合わせて、ページに渡す一覧を作る
+export function buildList(stat, pos, aiCache = {}) {
+  const list = [];
+  for (const [mmsi, p] of Object.entries(pos)) {
+    const s = stat[mmsi] || {};
+    const type = s.type || 0, len = s.len || 0;
+    const v = {
+      mmsi, name: s.name || "", type, typeName: typeName(type), cat: categorize(type, len),
+      len, beam: s.beam || 0, dest: s.dest || "", call: s.call || "", imo: s.imo || 0,
+      flag: flagOf(mmsi), ...p,
+    };
+    const a = aiCache[mmsi];
+    if (a && a.key === aiKey(v)) v.ai = a.text;
+    list.push(v);
+  }
+  return list;
+}
+
+// 古すぎるキャッシュを捨てる（静的情報 30日・解説 60日）
+export function pruneCaches(stat, aiCache, now = Date.now()) {
+  for (const [k, s] of Object.entries(stat)) if (s.ts && now - s.ts > 30 * 864e5) delete stat[k];
+  for (const [k, a] of Object.entries(aiCache)) if (now - a.at > 60 * 864e5) delete aiCache[k];
+}
+
+// ---------- メイン（GitHub Actions 用：数分だけ受信して書き出す） ----------
 async function main() {
   const stat = readJSON(path.join(CACHE_DIR, "static.json"), {});
   const prevPos = readJSON(path.join(CACHE_DIR, "pos.json"), {});
@@ -250,26 +281,9 @@ async function main() {
 
   await listen(stat, pos);
 
-  const list = [];
-  for (const [mmsi, p] of Object.entries(pos)) {
-    const s = stat[mmsi] || {};
-    const type = s.type || 0, len = s.len || 0;
-    list.push({
-      mmsi, name: s.name || "", type, typeName: typeName(type), cat: categorize(type, len),
-      len, beam: s.beam || 0, dest: s.dest || "", call: s.call || "", imo: s.imo || 0,
-      flag: flagOf(mmsi), ...p,
-    });
-  }
-
-  await explainAll(list, aiCache);
-  for (const v of list) {
-    const a = aiCache[v.mmsi];
-    if (a && a.key === aiKey(v)) v.ai = a.text;
-  }
-
-  // 古すぎるキャッシュは捨てる（静的情報 30日・解説 60日）
-  for (const [k, s] of Object.entries(stat)) if (s.ts && now - s.ts > 30 * 864e5) delete stat[k];
-  for (const [k, a] of Object.entries(aiCache)) if (now - a.at > 60 * 864e5) delete aiCache[k];
+  await explainAll(buildList(stat, pos), aiCache);
+  const list = buildList(stat, pos, aiCache);
+  pruneCaches(stat, aiCache, now);
 
   writeJSON(path.join(CACHE_DIR, "static.json"), stat);
   writeJSON(path.join(CACHE_DIR, "pos.json"), pos);
