@@ -1,0 +1,67 @@
+name: 東京湾AISデータ更新
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ais
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install --no-audit --no-fund
+
+      - name: キャッシュ（船の情報とAI解説）を復元
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: ais-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ais-cache-
+
+      - name: サイトを用意
+        run: |
+          mkdir -p site
+          cp index.html tokyobay_ais_live.html site/
+
+      - name: AISを受信して解説を作る
+        env:
+          AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          DURATION_SEC: ${{ github.event_name == 'push' && '120' || '330' }}
+        run: node scripts/collect.mjs
+
+      - name: キャッシュを保存
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: ais-cache-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

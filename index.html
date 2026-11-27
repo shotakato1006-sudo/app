@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>東京湾ふねウォッチ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f3f7fa;--panel:#ffffff;--ink:#0d2233;--sub:#5a7183;--line:#dbe5ec;--acc:#0b72a8;--soft:#eaf3f8;
+  --c-passenger:#e0457b;--c-giant:#f08c00;--c-pleasure:#12a37f;--c-highspeed:#7b4ddb;--c-work:#2f7ee0;--c-fishing:#8a9a2b;--c-other:#94a3b0;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0a1724;--panel:#0f2132;--ink:#e6eef4;--sub:#93aabb;--line:#1f3a52;--acc:#5cc0f0;--soft:#13293d;
+  --c-other:#6b7f90;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,"Hiragino Sans","Yu Gothic UI","Yu Gothic",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:18px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+h1{font-size:19px;margin:0;white-space:nowrap}
+h1 small{font-weight:400;color:var(--sub);font-size:12px;margin-left:8px}
+.areas{display:flex;gap:6px;flex-wrap:wrap}
+.areas button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:99px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.areas button:hover{background:var(--soft)}
+.areas button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.updated{margin-left:auto;color:var(--sub);font-size:12px;white-space:nowrap}
+main{flex:1;display:flex;min-height:0}
+#map{flex:1;min-width:0;background:#cfe0ea}
+aside{width:400px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.filters{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.filters h2,.list h2{font-size:12px;color:var(--sub);font-weight:600;margin:0 0 8px;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:4px 10px 4px 8px;cursor:pointer;user-select:none;font-size:13px;background:transparent;color:var(--ink);font-family:inherit}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.chip .n{color:var(--sub);font-size:12px}
+.chip.on{background:color-mix(in srgb,var(--c) 14%,transparent);border-color:var(--c)}
+.chip:not(.on){opacity:.55}
+.scroll{flex:1;overflow:auto;min-height:0}
+.detail{padding:16px;border-bottom:1px solid var(--line)}
+.detail.empty{color:var(--sub)}
+.spot{display:grid;gap:8px}
+.spot .card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;background:var(--soft)}
+.spot .card:hover{border-color:var(--acc)}
+.spot .lbl{font-size:11px;color:var(--sub)}
+.spot .nm{font-weight:700;font-size:15px}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;color:#fff;background:var(--c);vertical-align:2px}
+.dname{font-size:22px;font-weight:800;margin:6px 0 2px;line-height:1.3;word-break:break-word}
+.dsub{color:var(--sub);font-size:12px;margin-bottom:10px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.fact{background:var(--soft);border-radius:8px;padding:8px 10px}
+.fact .k{font-size:11px;color:var(--sub)}
+.fact .v{font-weight:700}
+.fact .h{font-size:11px;color:var(--sub);line-height:1.4}
+.ai{border-left:3px solid var(--acc);background:var(--soft);padding:10px 12px;border-radius:0 8px 8px 0;margin-top:10px}
+.ai .k{font-size:11px;color:var(--acc);font-weight:700;margin-bottom:2px}
+.ai .note{font-size:11px;color:var(--sub);margin-top:6px}
+.links{margin-top:10px;font-size:12px}
+.links a{color:var(--acc)}
+.list{padding:12px 16px 20px}
+.row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer}
+.row:hover,.row.sel{background:var(--soft)}
+.row .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex-shrink:0}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.row .meta{color:var(--sub);font-size:12px;white-space:nowrap}
+.notice{padding:20px;color:var(--sub);line-height:1.8}
+.notice a{color:var(--acc)}
+.ship{transition:transform .2s}
+.ship svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
+.leaflet-tooltip.nm{font:600 12px system-ui,"Hiragino Sans",sans-serif;padding:2px 7px}
+@media (max-width:900px){
+  main{flex-direction:column}
+  #map{min-height:55vh}
+  aside{width:auto;border-left:0;border-top:1px solid var(--line)}
+  .updated{margin-left:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>東京湾ふねウォッチ<small>いま湾内にいる面白い船</small></h1>
+  <div class="areas" id="areas"></div>
+  <div class="updated" id="updated">読み込み中…</div>
+</header>
+<main>
+  <div id="map"></div>
+  <aside>
+    <div class="filters">
+      <h2>表示する船</h2>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="scroll">
+      <div class="detail" id="detail"></div>
+      <div class="list"><h2 id="listTitle">いま見えている船</h2><div id="list"></div></div>
+    </div>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+var CAT = {
+  passenger: {n:"客船・フェリー", on:true},
+  giant:     {n:"巨大船（200m以上）", on:true},
+  pleasure:  {n:"ヨット・プレジャーボート", on:true},
+  highspeed: {n:"高速船", on:true},
+  work:      {n:"働く船（タグ・巡視船など）", on:true},
+  fishing:   {n:"漁船", on:false},
+  other:     {n:"その他の貨物船など", on:false}
+};
+var AREAS = {
+  bay:{n:"東京湾全体",c:[35.40,139.82],z:10},
+  tokyo:{n:"東京港",c:[35.61,139.80],z:13},
+  keihin:{n:"川崎・横浜",c:[35.47,139.69],z:12},
+  chiba:{n:"千葉・木更津",c:[35.50,140.02],z:11},
+  uraga:{n:"浦賀水道",c:[35.20,139.75],z:12}
+};
+var cssVar = function(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();};
+var esc = function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
+try{var saved=JSON.parse(localStorage.getItem("cats")||"null");if(saved)for(var k in saved)if(CAT[k])CAT[k].on=!!saved[k];}catch(e){}
+
+// ---- 地図 ----
+var dark = matchMedia("(prefers-color-scheme: dark)").matches;
+var map = L.map("map",{zoomControl:true,preferCanvas:false}).setView(AREAS.bay.c,AREAS.bay.z);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/"+(dark?"dark_all":"rastertiles/voyager")+"/{z}/{x}/{y}{r}.png",{
+  maxZoom:18,subdomains:"abcd",
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a> | AIS: <a href="https://aisstream.io">aisstream.io</a>'
+}).addTo(map);
+var layer = L.layerGroup().addTo(map);
+
+// ---- エリアボタン ----
+var areasEl=document.getElementById("areas");
+Object.keys(AREAS).forEach(function(k){
+  var b=document.createElement("button");b.textContent=AREAS[k].n;b.dataset.k=k;
+  b.onclick=function(){map.flyTo(AREAS[k].c,AREAS[k].z,{duration:.8});[].forEach.call(areasEl.children,function(x){x.className=x===b?"on":"";});};
+  if(k==="bay")b.className="on";
+  areasEl.appendChild(b);
+});
+
+// ---- 状態 ----
+var vessels=[], markers={}, selected=null, updatedAt=null;
+
+function shipIcon(v, sel){
+  var len=v.len||0;
+  var size = len>=300?34:len>=200?30:len>=100?24:len>=40?19:15;
+  if(sel) size+=8;
+  var col=cssVar("--c-"+v.cat)||"#888";
+  var moving = v.sog!=null && v.sog>=0.8;
+  var rot = v.hdg!=null?v.hdg:(v.cog!=null?v.cog:0);
+  var shape = moving
+    ? '<path d="M12 1 L20 21 L12 17 L4 21 Z"/>'
+    : '<circle cx="12" cy="12" r="6.5"/>';
+  var ring = sel?'<circle cx="12" cy="12" r="11" fill="none" stroke="'+col+'" stroke-width="1.6" opacity=".8"/>':'';
+  var html='<div class="ship" style="transform:rotate('+(moving?rot:0)+'deg)"><svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24">'+ring+
+    '<g fill="'+col+'" stroke="#fff" stroke-width="1.6" stroke-linejoin="round">'+shape+'</g></svg></div>';
+  return L.divIcon({html:html,className:"",iconSize:[size,size],iconAnchor:[size/2,size/2]});
+}
+
+function visible(v){return CAT[v.cat] && CAT[v.cat].on;}
+
+function render(){
+  layer.clearLayers(); markers={};
+  vessels.forEach(function(v){
+    if(!visible(v))return;
+    var m=L.marker([v.lat,v.lon],{icon:shipIcon(v,selected===v.mmsi),zIndexOffset:selected===v.mmsi?1000:(v.len||0)});
+    m.bindTooltip(v.name||"（名前不明）",{className:"nm",direction:"top",offset:[0,-8]});
+    m.on("click",function(){select(v.mmsi,false);});
+    m.addTo(layer); markers[v.mmsi]=m;
+  });
+  renderChips(); renderList(); renderDetail();
+}
+
+function renderChips(){
+  var el=document.getElementById("chips"); el.innerHTML="";
+  Object.keys(CAT).forEach(function(k){
+    var n=vessels.filter(function(v){return v.cat===k;}).length;
+    var b=document.createElement("button");
+    b.className="chip"+(CAT[k].on?" on":""); b.style.setProperty("--c","var(--c-"+k+")");
+    b.innerHTML='<span class="dot"></span>'+esc(CAT[k].n)+' <span class="n">'+n+'</span>';
+    b.onclick=function(){CAT[k].on=!CAT[k].on;try{var o={};for(var c in CAT)o[c]=CAT[c].on;localStorage.setItem("cats",JSON.stringify(o));}catch(e){} if(selected&&!visible(byId(selected)||{}))selected=null; render();};
+    el.appendChild(b);
+  });
+}
+
+var order={passenger:0,giant:1,pleasure:2,highspeed:3,work:4,fishing:5,other:6};
+function sorted(){
+  return vessels.filter(visible).sort(function(a,b){return order[a.cat]-order[b.cat]||(b.len||0)-(a.len||0);});
+}
+function renderList(){
+  var el=document.getElementById("list"), arr=sorted();
+  document.getElementById("listTitle").textContent="いま見えている船（"+arr.length+"隻）";
+  el.innerHTML = arr.slice(0,300).map(function(v){
+    return '<div class="row'+(selected===v.mmsi?' sel':'')+'" data-m="'+esc(v.mmsi)+'" style="--c:var(--c-'+v.cat+')"><span class="dot"></span><span class="nm">'+esc(v.name||"（名前不明）")+
+      '</span><span class="meta">'+esc(v.typeName)+(v.len?' · '+v.len+'m':'')+'</span></div>';
+  }).join("") || '<div class="notice">この条件の船はいま見当たりません。上のボタンで種類を増やしてみてください。</div>';
+  [].forEach.call(el.querySelectorAll(".row"),function(r){r.onclick=function(){select(r.dataset.m,true);};});
+}
+
+function byId(id){for(var i=0;i<vessels.length;i++)if(vessels[i].mmsi===id)return vessels[i];return null;}
+
+function select(id, fly){
+  selected=id; var v=byId(id); if(!v)return;
+  if(fly) map.flyTo([v.lat,v.lon],Math.max(map.getZoom(),13),{duration:.8});
+  render();
+  document.querySelector(".scroll").scrollTop=0;
+}
+
+// ---- 身近なたとえ ----
+function sizeHint(len){
+  if(!len) return "";
+  if(len>=320) return "東京タワー（333m）を横にしたくらい";
+  if(len>=250) return "東京タワーの約"+Math.round(len/333*10)+"割の長さ";
+  if(len>=100) return "サッカー場（105m）の約"+(len/105).toFixed(1)+"倍";
+  if(len>=20) return "電車 約"+Math.round(len/20)+"両分";
+  return "乗用車 約"+Math.max(1,Math.round(len/4.5))+"台分";
+}
+function speedText(v){
+  if(v.sog==null) return {v:"不明",h:""};
+  if(v.sog<0.5) return {v:"止まっている",h:"停泊中か錨泊中"};
+  var kmh=Math.round(v.sog*1.852);
+  var h = kmh<15?"自転車くらい":kmh<30?"原付くらい":kmh<50?"街を走る車くらい":"高速道路の車に近い";
+  return {v:v.sog.toFixed(1)+"ノット（時速"+kmh+"km）",h:h};
+}
+var PORTS={TYO:"東京",YOK:"横浜",KWS:"川崎",CHB:"千葉",KZU:"木更津",YKS:"横須賀",KIS:"君津",FNB:"船橋",SBS:"袖ヶ浦",OSA:"大阪",KOB:"神戸",NGO:"名古屋",HKT:"博多",TMK:"苫小牧",SMZ:"清水",KTN:"北九州"};
+function destText(d){
+  if(!d) return "不明";
+  var m=d.toUpperCase().match(/JP\s*-?\s*([A-Z]{3})/);
+  if(m&&PORTS[m[1]]) return PORTS[m[1]]+"（"+d+"）";
+  return d;
+}
+function fallbackText(v){
+  var t={passenger:"人や車を運ぶ客船・フェリーです。東京湾では観光船や長距離フェリー、ときには大型クルーズ船も見られます。",
+    giant:"全長200mを超える巨大な船です。東京湾には世界中から大型のコンテナ船やタンカー、自動車運搬船がやってきます。",
+    pleasure:"個人やクラブが楽しむヨットやプレジャーボートです。週末や天気のよい日に増えます。",
+    highspeed:"高速で走れるように作られた船です。旅客を素早く運ぶ高速船などがこの分類です。",
+    work:"港を支える働く船です。大きな船を押して着岸を助けるタグボートや、海を見回る巡視船などがあります。",
+    fishing:"魚をとる漁船です。東京湾ではアナゴやスズキ、ノリの養殖など今も漁業が続いています。",
+    other:"貨物やエネルギーを運ぶ船です。東京湾は日本有数の物流の玄関口です。"}[v.cat];
+  return t;
+}
+
+function renderDetail(){
+  var el=document.getElementById("detail"), v=selected&&byId(selected);
+  if(!v){
+    el.className="detail";
+    var vis=vessels.filter(visible);
+    var biggest=vis.slice().sort(function(a,b){return (b.len||0)-(a.len||0);})[0];
+    var pas=vis.filter(function(x){return x.cat==="passenger";}).sort(function(a,b){return (b.len||0)-(a.len||0);})[0];
+    var fast=vis.filter(function(x){return x.sog!=null;}).sort(function(a,b){return b.sog-a.sog;})[0];
+    var cards=[];
+    if(biggest&&biggest.len) cards.push(['いま一番大きい船',biggest,biggest.len+'m · '+sizeHint(biggest.len)]);
+    if(pas) cards.push(['注目の客船・フェリー',pas,pas.typeName+(pas.len?' · '+pas.len+'m':'')]);
+    if(fast&&fast.sog>=1) cards.push(['いま一番速い船',fast,speedText(fast).v]);
+    el.innerHTML = vessels.length
+      ? '<div class="spot">'+cards.map(function(c){return '<div class="card" data-m="'+esc(c[1].mmsi)+'"><div class="lbl">'+c[0]+'</div><div class="nm">'+esc(c[1].name||"（名前不明）")+'</div><div class="lbl">'+esc(c[2])+'</div></div>';}).join("")+
+        '<div class="lbl" style="color:var(--sub);font-size:12px">地図の船や下の一覧をクリックすると、AIの解説が見られます。▲は航行中（向きは進行方向）、●は止まっている船です。</div></div>'
+      : "";
+    [].forEach.call(el.querySelectorAll(".card"),function(c){c.onclick=function(){select(c.dataset.m,true);};});
+    return;
+  }
+  var sp=speedText(v);
+  el.className="detail";
+  el.innerHTML =
+    '<span class="badge" style="--c:var(--c-'+v.cat+')">'+esc(CAT[v.cat].n)+'</span>'+
+    '<div class="dname">'+esc(v.name||"（名前不明）")+'</div>'+
+    '<div class="dsub">'+esc(v.typeName)+(v.flag?' · 船籍 '+esc(v.flag):'')+'</div>'+
+    '<div class="facts">'+
+      '<div class="fact"><div class="k">全長</div><div class="v">'+(v.len?v.len+' m':'不明')+'</div><div class="h">'+esc(sizeHint(v.len))+'</div></div>'+
+      '<div class="fact"><div class="k">幅</div><div class="v">'+(v.beam?v.beam+' m':'不明')+'</div></div>'+
+      '<div class="fact"><div class="k">速さ</div><div class="v">'+esc(sp.v)+'</div><div class="h">'+esc(sp.h)+'</div></div>'+
+      '<div class="fact"><div class="k">行き先</div><div class="v">'+esc(destText(v.dest))+'</div></div>'+
+    '</div>'+
+    '<div class="ai"><div class="k">'+(v.ai?'AI解説':'かんたん解説')+'</div>'+esc(v.ai||fallbackText(v))+
+      '<div class="note">'+(v.ai?'AIが船のデータをもとに書いた解説です。誤りを含むことがあります。':'この船のAI解説はまだ作成中です。')+'</div></div>'+
+    '<div class="links"><a href="https://www.vesselfinder.com/vessels/details/'+encodeURIComponent(v.mmsi)+'" target="_blank" rel="noopener">VesselFinderで詳しく見る</a> · <a href="#" id="back">一覧に戻る</a></div>';
+  document.getElementById("back").onclick=function(e){e.preventDefault();selected=null;render();};
+}
+
+// ---- データ読み込み ----
+function ago(t){
+  var m=Math.round((Date.now()-t)/60000);
+  return m<1?"たった今":m<60?m+"分前":Math.round(m/60)+"時間前";
+}
+function showUpdated(){
+  document.getElementById("updated").textContent = updatedAt ? "データ更新："+ago(updatedAt)+"（約15分ごとに更新）" : "";
+}
+function load(){
+  fetch("data/vessels.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error(r.status); return r.json();
+  }).then(function(d){
+    vessels=(d.vessels||[]).filter(function(v){return typeof v.lat==="number";});
+    updatedAt=Date.parse(d.updated);
+    if(selected&&!byId(selected)) selected=null;
+    showUpdated(); render();
+  }).catch(function(){
+    if(vessels.length) return;
+    document.getElementById("updated").textContent="";
+    document.getElementById("detail").innerHTML='<div class="notice">船のデータがまだありません。<br>データ取得の設定が終わると、ここに東京湾の船が表示されます。<br><br>それまでは <a href="tokyobay_ais_live.html">VesselFinderの地図版</a> をご覧ください。</div>';
+    renderChips();
+  });
+}
+load();
+setInterval(load, 5*60*1000);
+setInterval(showUpdated, 60*1000);
+</script>
+</body>
+</html>
