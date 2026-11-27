@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>東京湾 AISライブ</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef5f8;--ink:#0a2236;--sub:#4c6577;--line:#c9d9e2;--acc:#0a6a9a}
+@media (prefers-color-scheme:dark){:root{--bg:#081a2b;--ink:#e4eef5;--sub:#9db4c6;--line:#23415c;--acc:#5fc3ef}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Hiragino Sans","Yu Gothic",sans-serif}
+header{padding:12px 14px 8px}
+h1{font-size:20px;margin:0 0 8px}
+nav{display:flex;flex-wrap:wrap;gap:8px}
+nav a{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:99px;color:var(--ink);text-decoration:none;font-size:14px}
+nav a.on{background:var(--acc);border-color:var(--acc);color:#fff}
+#map{flex:1;min-height:420px;width:100%;border:0;display:block;background:#cfe0ea}
+p{margin:8px 14px 14px;color:var(--sub);font-size:13px}
+p a{color:var(--acc)}
+</style></head><body>
+<header>
+<h1>東京湾 AISライブ</h1>
+<nav id="nav"></nav>
+</header>
+<iframe id="map" title="AIS船舶マップ" loading="eager" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+<p>地図データ：VesselFinder（AIS）。船をタップすると船名・船種・速力・目的港が見られます。位置は受信状況により数分遅れることがあります。<br>
+表示されない場合：<a id="ext" href="https://www.vesselfinder.com/" target="_blank" rel="noopener">VesselFinderで直接開く</a></p>
+<script>
+// 表示エリアのプリセット（#の後ろで切り替え）
+var P={
+ bay:{n:"東京湾全体",lat:35.42,lon:139.80,z:10},
+ uraga:{n:"浦賀水道",lat:35.22,lon:139.74,z:12},
+ keihin:{n:"東京・川崎・横浜",lat:35.53,lon:139.78,z:12},
+ chiba:{n:"千葉・木更津",lat:35.50,lon:140.00,z:11},
+ tokyo:{n:"東京港",lat:35.61,lon:139.80,z:13}
+};
+var nav=document.getElementById("nav"), map=document.getElementById("map"), ext=document.getElementById("ext");
+for(var k in P){var a=document.createElement("a");a.href="#"+k;a.textContent=P[k].n;a.dataset.k=k;nav.appendChild(a);}
+
+function show(){
+  var key=(location.hash||"#bay").slice(1); if(!P[key])key="bay";
+  var p=P[key];
+  [].forEach.call(nav.children,function(a){a.className=a.dataset.k===key?"on":"";});
+  // document.write を使う aismap.js ではなく、iframe を直接埋め込む
+  var q="zoom="+p.z+"&lat="+p.lat+"&lon="+p.lon+"&width=100%25&height="+Math.max(420,map.clientHeight||420)+
+        "&names=true&track=false&fleet=false&fleet_name=false&fleet_hide_old_positions=false&clicktoact=false&store_pos=false&ra=";
+  map.src="https://www.vesselfinder.com/aismap?"+q;
+  ext.href="https://www.vesselfinder.com/?lat="+p.lat+"&lon="+p.lon+"&zoom="+p.z;
+}
+window.addEventListener("hashchange",show);
+show();
+</script>
+</body></html>
