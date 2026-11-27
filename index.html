@@ -68,15 +68,17 @@ aside{width:400px;flex-shrink:0;border-left:1px solid var(--line);background:var
 .ship{transition:transform .2s}
 .ship svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
 .leaflet-tooltip.nm{font:600 12px system-ui,"Hiragino Sans",sans-serif;padding:2px 7px}
-@media (max-width:900px){
-  main{flex-direction:column}
-  #map{min-height:55vh}
-  aside{width:auto;border-left:0;border-top:1px solid var(--line)}
-  .updated{margin-left:0}
+/* PC専用：画面幅が狭い端末（スマホなど）では案内だけを出す */
+#pconly{display:none}
+@media (max-width:1023px){
+  header,main{display:none}
+  #pconly{display:flex;flex:1;align-items:center;justify-content:center;text-align:center;padding:32px 16px;color:var(--sub);line-height:1.9}
+  #pconly b{display:block;color:var(--ink);font-size:20px;margin-bottom:8px}
 }
 </style>
 </head>
 <body>
+<div id="pconly"><div><b>東京湾ふねウォッチ</b>このページはパソコン専用です。<br>パソコンのブラウザで開いてください。<br>（ブラウザの幅が狭い場合は、ウィンドウを広げてください）</div></div>
 <header>
   <h1>東京湾ふねウォッチ<small>いま湾内にいる面白い船</small></h1>
   <div class="areas" id="areas"></div>
